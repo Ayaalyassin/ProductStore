@@ -3,108 +3,42 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-//use App\Http\Requests\AuthRequest;
-//use App\Http\Requests\LoginRequest;
+use App\Http\Requests\AuthRequest;
+use App\Http\Requests\LoginRequest;
 use App\Models\User;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 use Tymon\JWTAuth\Facades\JWTAuth;
-//use App\Traits\GeneralTrait;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\Random;
-
-use Symfony\Component\HttpFoundation\Response;
-//use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Password;
-
-use App\Mail\EmailUser;
-use App\Mail\verifyemail;
-
 use Illuminate\Support\Facades\Mail;
-use App\Events\SendMessageToClientEvent;
-use Illuminate\Auth\Events\Verified;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
-use Illuminate\Foundation\Auth\VerifiesEmails;
 
 
 class AuthUserController extends Controller
 {
-    //use GeneralTrait;
-    //public function register (AuthRequest $request)
-    public function register (Request $request)
+    protected $userService;
+
+    public function __construct(UserService $userService)
     {
-        try {
-
-            DB::beginTransaction();
-            $num_Code = sprintf("%06d", mt_rand(1, 999999));
-            $user=User::create([
-                'name'           => $request->name,
-                'email'          => $request->email,
-                'password'       => $request->password,
-                'remember_token' => Str::random(60),
-                'code'           =>$num_Code
-            ]);
-            //send code to user email
-           //Notification::send($user, new CodeUserNotification($user));
-           //Mail::to($user->email)->send(new EmailUser($user->code));
-           //$user->sendEmailVerificationNotification();
-
-            DB::commit();
-            //return $this->returnSuccessMessage('Registering successfully');
-            /*$verification_code=Str::random(30);
-            $user->remember_token=$verification_code;
-            $user->save();
-            $subject="please verify your email address.";*/
-            /*Mail::send('email.verify',['name'=>$user->name,'verification_code'=>$verification_code],
-                 function($mail) use ($user->email,$user->name,$subject){
-                    $ma
-                 }
-                );*/
-                //Mail::to($user->email)->send(new verifyemail($user->name,$user->email,$verification_code));
-            return response()->json('Registering successfully');
-           // return response()->json('please check your email to complete your registeration');
-
-        } catch (\Exception $ex) {
-            DB::rollback();
-            //return $this->returnError("", "Please try again later");
-            return response()->json("Please try again later");
-        }
-
+        $this->userService=$userService;
     }
 
-    //public function login(LoginRequest $request)
-    public function login(Request $request)
+
+    public function register(AuthRequest $request)
     {
-        try {
+        $this->userService->register($request);
+        return response()->json('Registering successfully');
+    }
 
-
-            $credentials = $request->only(['email', 'password']);
-            $token = JWTAuth::attempt($credentials);
-
-            if (!$token)
-                //return $this->returnError('E001', 'Unauthorized');
-                return response()->json("Unauthorized");
-
-            $user =auth()->user();
-            $user->token = $token;
-
-            //return $this->returnData('user', $user);
-            return response()->json($user);
-
-
-        } catch (\Exception $ex) {
-            //return $this->returnError("", "Please try again later");
-            return response()->json("Please try again later");
-        }
+    public function login(LoginRequest $request)
+    {
+        $user=$this->userService->login($request);
+        return response()->json($user);
 
     }
 
     public function me()
     {
-        //return $this->returnData('user', auth()->user());
         return response()->json(auth()->user());
     }
 
@@ -115,14 +49,11 @@ class AuthUserController extends Controller
             try {
 
                 JWTAuth::setToken($token)->invalidate(); //logout
-                //return $this->returnSuccessMessage('Logged out successfully');
                 return response()->json('Logged out successfully');
             } catch (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
-                //return $this->returnError('', 'some thing went wrongs');
                 return response()->json('some thing went wrongs');
             }
         } else {
-            //return $this->returnError('', 'some thing went wrongs');
             return response()->json('some thing went wrongs');
         }
     }
@@ -140,10 +71,8 @@ class AuthUserController extends Controller
         {
             $user->active="true";
             $user->save();
-            //return $this->returnSuccessMessage('true');
             return response()->json('true');
         }
-        //return  $this->returnError('', 'false');
         return response()->json('false');
     }
 
