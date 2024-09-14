@@ -5,6 +5,7 @@ namespace App\Services;
 
 use App\Models\Category;
 use App\Models\Product;
+use App\Repositories\ProductRepository;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,10 +13,17 @@ use Illuminate\Support\Facades\Auth;
 class ProductService
 {
 
+    protected $productRepository;
+
+    public function __construct(ProductRepository $productRepository)
+    {
+        $this->productRepository=$productRepository;
+    }
+
     public function index(Request $request)
     {
         if($request->all() == null)
-            return Product::all();
+            return $this->productRepository->getAll();
 
         if($request->searchType == 'categoryName') {
             $request->searchData = Category::where('name', '=', $request->searchData)->get()[0]['id']; //category id
@@ -34,24 +42,11 @@ class ProductService
     public function store(Request $request)
     {
 
-        $category_id = Category::query()
-            ->select('id')
-            ->where('name','=', $request->category_name)
-            ->first()['id'];
+        $category_id = $this->productRepository->categoryQue($request);
 
         $user = Auth::user();
 
-        $product=Product::create([
-            'user_id'=>$user->id,
-            'name'=>$request->name,
-            'price'=>$request->price,
-            'description'=>$request->description,
-            'expiration_date'=>$request->expiration_date,
-            'image_url'=>$request->image_url,
-            'quantity'=>$request->quantity,
-            'category_id'=>$category_id,
-
-        ]);
+        $product=$this->productRepository->create($user,$request,$category_id);
 
         foreach($request->list_discounts as $discount)
         {
@@ -67,7 +62,7 @@ class ProductService
 
     public function show($id)
     {
-        $product=Product::find($id);
+        $product=$this->productRepository->getById($id);
 
         $product->increment('views');
 
@@ -91,20 +86,13 @@ class ProductService
     public function update(Request $request,$id)
     {
         $user_id=Auth::id();
-        $product= Product::query()
-            ->where('id','=',$id)
-            ->where('user_id','=',$user_id)->exists();
+        $product= $this->productRepository->productUser($id,$user_id);
         if($product==null){
             throw new HttpResponseException(response()->json("not found",404));
         }
 
-        $category_id = Category::query()
-            ->select('id')
-            ->where('name','=', $request->category_name)
-            ->first()['id'];
-
-        $product=Product::find($id);
-        $product->update($request->all());
+        $product=$this->productRepository->getById($id);
+        $this->productRepository->update($product,$request);
 
         return $product;
     }
@@ -114,9 +102,7 @@ class ProductService
     public function destroy($id)
     {
         $user_id=Auth::id();
-        $product= Product::query()
-            ->where('id','=',$id)
-            ->where('user_id','=',$user_id)->first();
+        $product= $this->productRepository->productUserf($id,$user_id);
         if(!$product){
             throw new HttpResponseException(response()->json("not found",404));
         }
@@ -126,7 +112,7 @@ class ProductService
     public function sort(Request $request)
     {
         $sort=$request->sort;
-        $sorting =  Product::query()->orderBy($sort)->get();
+        $sorting =  $this->productRepository->sort($sort);
         return $sorting;
     }
 

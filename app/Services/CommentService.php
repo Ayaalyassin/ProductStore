@@ -3,24 +3,26 @@
 
 namespace App\Services;
 
-
-use App\Http\Requests\CommentRequest;
-use App\Models\Comment;
 use App\Models\Product;
+use App\Repositories\CommentRepository;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 
 class CommentService
 {
+    protected $commentRepository;
+
+    public function __construct(CommentRepository $commentRepository)
+    {
+        $this->commentRepository=$commentRepository;
+    }
+
     public function index($product_id)
     {
-        $product =  Product::find($product_id);
+        $product =  $this->commentRepository->getProduct($product_id);
         if(!$product)
             throw new HttpResponseException(response()->json("not found",404));
-        $comments=$product->comments()->get();
-        return $comments;
+        return $this->commentRepository->getAll($product);
     }
 
     public function store($request,Product $product)
@@ -28,18 +30,12 @@ class CommentService
 
         $user=Auth::user();
 
-        $comment=$product->comments()->create([
-            'comment_text'=>$request->comment_text,
-            'user_id'=>$user->id
-
-        ]);
-
-        return $comment;
+        return $this->commentRepository->create($product,$request,$user);
     }
 
     public function show($id)
     {
-        $comment=Comment::find($id);
+        $comment=$this->commentRepository->getById($id);
 
         if(is_null($comment))
         {
@@ -54,7 +50,7 @@ class CommentService
     {
         $user=Auth::user();
 
-        $comment=$user->comments()->find($id);
+        $comment=$this->commentRepository->getComment($user,$id);
         if(!$comment)
         {
             throw new HttpResponseException(response()->json("not found",404));
@@ -71,11 +67,11 @@ class CommentService
     {
         $user=auth()->user();
 
-        $comment=$user->comments()->find($comment_id);
+        $comment=$this->commentRepository->getComment($user,$comment_id);
 
         if(!$comment)
             throw new HttpResponseException(response()->json("not found",404));
-        $comment->delete();
+        $this->commentRepository->delete($comment);
 
 
     }

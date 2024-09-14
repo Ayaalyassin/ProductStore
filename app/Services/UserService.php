@@ -3,14 +3,20 @@
 
 namespace App\Services;
 
-use App\Models\User;
+use App\Repositories\UserRepository;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class UserService
 {
+
+    protected $userRepository;
+
+    public function __construct(UserRepository $userRepository)
+    {
+        $this->userRepository=$userRepository;
+    }
 
     public function register ($request)
     {
@@ -18,13 +24,7 @@ class UserService
 
             DB::beginTransaction();
             $num_Code = sprintf("%06d", mt_rand(1, 999999));
-            User::create([
-                'name'           => $request->name,
-                'email'          => $request->email,
-                'password'       => $request->password,
-                'remember_token' => Str::random(60),
-                'code'           =>$num_Code
-            ]);
+            $this->userRepository->create($request,$num_Code);
 
         } catch (\Exception $ex) {
             DB::rollback();
